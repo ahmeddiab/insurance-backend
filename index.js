@@ -6,10 +6,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// تأكدنا من الرابط
+// تأكدنا من الرابط v1
 const API_URL = "https://api-test.alqaseh.com/v1/egw/payments/create";
 
-// بيانات التيست
+// بيانات التيست (من الصورة اللي دزيتها)
 const CLIENT_ID = "public_test";
 const CLIENT_SECRET = "Lr10yWWmm1dXLol7VgXCrQVnlq13c1G0";
 
@@ -17,27 +17,27 @@ app.post('/create-payment', async (req, res) => {
     try {
         const { amount, orderId } = req.body;
         
-        // 1. التشفير الصحيح (Basic Auth)
-        // دمجنا اليوزر والباسورد وشفرناهم base64
+        // 1. تجهيز "Basic Auth"
+        // هذه الخطوة تدمج الاسم والرمز وتشفرهم، وهي مفتاح الدخول للبوابة
         const auth = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64');
         
-        // 2. تجهيز البيانات JSON حسب الدوكيومنت بالضبط
+        // 2. تجهيز البيانات JSON (حسب الدوكيومنت بالضبط)
         const payload = {
             amount: parseFloat(amount),
-            currency: "IQD", // required
-            order_id: orderId || `ORD-${Date.now()}`, // required
-            description: "Insurance Premium Payment", // required
-            transaction_type: "Retail", // required (من الـ enum)
-            redirect_url: "https://ahmeddiab.github.io/iic/payment_status.html" // required
+            currency: "IQD",          // Required
+            order_id: orderId || `ORD-${Date.now()}`, // Required
+            description: "Insurance Premium Payment", // Required
+            transaction_type: "Retail", // Required (مهم جداً: هذا كان ناقصنا)
+            redirect_url: "https://ahmeddiab.github.io/iic/payment_status.html" // Required
         };
 
-        console.log("Sending Request to Al Qaseh...");
+        console.log("Sending JSON Payload:", JSON.stringify(payload));
 
         // 3. الإرسال (Header + JSON Body)
         const response = await axios.post(API_URL, payload, {
             headers: { 
                 "Content-Type": "application/json",
-                "Authorization": `Basic ${auth}` // المفتاح هنا
+                "Authorization": `Basic ${auth}` // الهوية المشفرة هنا
             }
         });
 
@@ -50,8 +50,10 @@ app.post('/create-payment', async (req, res) => {
         });
 
     } catch (error) {
-        // طباعة سبب الخطأ الحقيقي من سيرفر القاصة
-        console.error("❌ Error Detail:", error.response?.data);
+        // طباعة تفاصيل الخطأ من سيرفر القاصة مباشرة
+        // هذا راح يكشفلنا السبب الحقيقي اذا صار اي خطأ
+        console.error("❌ Error Status:", error.response?.status);
+        console.error("❌ Error Data:", JSON.stringify(error.response?.data, null, 2));
         
         const errorData = error.response ? error.response.data : error.message;
         res.status(500).json({ success: false, error: errorData });
