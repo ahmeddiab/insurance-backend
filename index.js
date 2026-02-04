@@ -6,33 +6,31 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// رابط الـ API (حسب التوثيق)
 const API_URL = "https://api-test.alqaseh.com/v1/egw/payments/create";
 
 app.post('/create-payment', async (req, res) => {
     try {
         const { amount, orderId } = req.body;
         
+        // التعديل هنا: ضفنا المعلومات بداخل الـ payload
         const payload = {
             amount: parseFloat(amount),
             currency: "IQD",
             order_id: orderId || `ORD-${Date.now()}`,
             description: "Insurance Premium Payment",
             transaction_type: "Retail",
-            // رابط الرجوع لموقعك (تأكدنا من السماح له)
-            redirect_url: "https://ahmeddiab.github.io/iic/payment_status.html" 
+            redirect_url: "https://ahmeddiab.github.io/iic/payment_status.html",
+            
+            // ضفنا الهوية هنا لأن السيرفر يفضلها بهذا المكان
+            client_id: "public_test",
+            client_secret: "Lr10yWWmm1dXLol7VgXCrQVnlq13c1G0"
         };
 
         console.log("Sending request to Al Qaseh:", payload);
 
-        // هنا التعديل: استخدام Client ID و Client Secret بالهيدر
+        // شلنا الهيدر المعقد وخليناه بسيط
         const response = await axios.post(API_URL, payload, {
-            headers: { 
-                "Content-Type": "application/json",
-                // البيانات من الصورة اللي دزيتها
-                "x-client-id": "public_test", 
-                "x-client-secret": "Lr10yWWmm1dXLol7VgXCrQVnlq13c1G0"
-            }
+            headers: { "Content-Type": "application/json" }
         });
 
         res.json({
