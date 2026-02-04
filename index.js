@@ -3,52 +3,47 @@ const cors = require('cors');
 const axios = require('axios');
 
 const app = express();
+
+// هذا هو التغيير المهم: السماح للجميع بالاتصال
+app.use(cors());
 app.use(express.json());
 
- السماح للموقع مالتك بالاتصال بهذا السيرفر
-app.use(cors({ origin true })); 
+const API_URL = "https://api-test.alqaseh.com/v1/egw/payments/create";
 
- رابط القاصة (بيئة الاختبار)
-const API_URL = httpsapi-test.alqaseh.comv1egwpaymentscreate;
-
- نقطة الاتصال اللي راح نطلبها من الموقع
-app.post('create-payment', async (req, res) = {
+app.post('/create-payment', async (req, res) => {
     try {
         const { amount, orderId } = req.body;
         
-         تجهيز البيانات حسب طلب القاصة
         const payload = {
-            amount parseFloat(amount),
-            currency IQD,
-            order_id orderId  `ORD-${Date.now()}`,
-            description Insurance Premium Payment,
-            transaction_type Retail,
-             رابط الرجوع لموقعك الأصلي
-            redirect_url httpsiraqi-insurance.web.apppayment_status.html
+            amount: parseFloat(amount),
+            currency: "IQD",
+            order_id: orderId || `ORD-${Date.now()}`,
+            description: "Insurance Premium Payment",
+            transaction_type: "Retail",
+            redirect_url: "https://ahmeddiab.github.io/iic/payment_status.html" 
+            // ملاحظة: تأكد أن رابط الرجوع هذا صحيح أو رجعه لرابطك السابق اذا تحب
         };
 
-        console.log(Sending request to Al Qaseh, payload);
+        console.log("Sending request to Al Qaseh:", payload);
 
-         الاتصال بالقاصة
         const response = await axios.post(API_URL, payload, {
-            headers { Content-Type applicationjson }
+            headers: { "Content-Type": "application/json" }
         });
 
-         إرجاع النتيجة لموقعك
         res.json({
-            success true,
-            token response.data.token,
-            payment_id response.data.payment_id
+            success: true,
+            token: response.data.token,
+            payment_id: response.data.payment_id
         });
 
     } catch (error) {
-        console.error(Error, error.message);
-        const errorData = error.response  error.response.data  error.message;
-        res.status(500).json({ success false, error errorData });
+        console.error("Error:", error.message);
+        const errorData = error.response ? error.response.data : error.message;
+        res.status(500).json({ success: false, error: errorData });
     }
 });
 
-const PORT = process.env.PORT  3000;
-app.listen(PORT, () = {
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
