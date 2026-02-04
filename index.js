@@ -1,15 +1,16 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const qs = require('qs'); // مكتبة مهمة لتحويل البيانات
 
 const app = express();
-app.use(cors());
+app.use(cors()); // السماح للكل
 app.use(express.json());
 
-// تأكدنا من الرابط v1
+// رابط التيست (v1)
 const API_URL = "https://api-test.alqaseh.com/v1/egw/payments/create";
 
-// بيانات التيست (من الصورة اللي دزيتها)
+// بيانات التيست الصحيحة (تأكدنا منها من الصور)
 const CLIENT_ID = "public_test";
 const CLIENT_SECRET = "Lr10yWWmm1dXLol7VgXCrQVnlq13c1G0";
 
@@ -17,46 +18,67 @@ app.post('/create-payment', async (req, res) => {
     try {
         const { amount, orderId } = req.body;
         
-        // 1. تجهيز "Basic Auth"
-        // هذه الخطوة تدمج الاسم والرمز وتشفرهم، وهي مفتاح الدخول للبوابة
-        const auth = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64');
+        console.log("🚀 Starting Payment Request...");
         
-        // 2. تجهيز البيانات JSON (حسب الدوكيومنت بالضبط)
+        // 1. طريقة Basic Auth (تشفير الهوية)
+        const auth = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64');
+
+        // 2. تجهيز البيانات (Payload)
         const payload = {
             amount: parseFloat(amount),
-            currency: "IQD",          // Required
-            order_id: orderId || `ORD-${Date.now()}`, // Required
-            description: "Insurance Premium Payment", // Required
-            transaction_type: "Retail", // Required (مهم جداً: هذا كان ناقصنا)
-            redirect_url: "https://ahmeddiab.github.io/iic/payment_status.html" // Required
+            currency: "IQD",
+            order_id: orderId || `ORD-${Date.now()}`,
+            description: "Insurance Premium Payment",
+            transaction_type: "Retail", // هذا الحقل ضروري
+            redirect_url: "https://ahmeddiab.github.io/iic/payment_status.html"
         };
 
-        console.log("Sending JSON Payload:", JSON.stringify(payload));
+        // --- محاولة رقم 1: إرسال JSON (حسب الدوكيومنت) ---
+        try {
+            console.log("🔄 Attempt 1: Sending JSON...");
+            const response = await axios.post(API_URL, payload, {
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Authorization": `Basic ${auth}`
+                }
+            });
+            console.log("✅ Success (JSON)!");
+            return res.json({ success: true, token: response.data.token, payment_id: response.data.payment_id });
+        } catch (jsonError) {
+            console.warn("⚠️ JSON attempt failed, trying Form Data...");
+        }
 
-        // 3. الإرسال (Header + JSON Body)
-        const response = await axios.post(API_URL, payload, {
+        // --- محاولة رقم 2: إرسال Form Data (الحل البديل القوي) ---
+        // بعض السيرفرات تفضل استلام البيانات كـ Form حتى لو الدوكيومنت يكول JSON
+        const formData = qs.stringify({
+            ...payload,
+            client_id: CLIENT_ID,      // نرسل الهوية داخل الفورم ايضاً للاحتياط
+            client_secret: CLIENT_SECRET
+        });
+
+        const responseForm = await axios.post(API_URL, formData, {
             headers: { 
-                "Content-Type": "application/json",
-                "Authorization": `Basic ${auth}` // الهوية المشفرة هنا
+                "Content-Type": "application/x-www-form-urlencoded"
+                // هنا ما نحط Authorization header، نعتمد على البيانات داخل الفورم
             }
         });
 
-        console.log("✅ Success:", response.data);
-
+        console.log("✅ Success (Form Data)!");
         res.json({
             success: true,
-            token: response.data.token, 
-            payment_id: response.data.payment_id
+            token: responseForm.data.token,
+            payment_id: responseForm.data.payment_id
         });
 
     } catch (error) {
-        // طباعة تفاصيل الخطأ من سيرفر القاصة مباشرة
-        // هذا راح يكشفلنا السبب الحقيقي اذا صار اي خطأ
-        console.error("❌ Error Status:", error.response?.status);
-        console.error("❌ Error Data:", JSON.stringify(error.response?.data, null, 2));
-        
-        const errorData = error.response ? error.response.data : error.message;
-        res.status(500).json({ success: false, error: errorData });
+        // طباعة الخطأ النهائي بالتفصيل الممل
+        console.error("❌ FINAL FAILURE:", error.message);
+        if (error.response) {
+            console.error("❌ Server Response Data:", JSON.stringify(error.response.data, null, 2));
+            res.status(500).json({ success: false, error: error.response.data });
+        } else {
+            res.status(500).json({ success: false, error: error.message });
+        }
     }
 });
 
