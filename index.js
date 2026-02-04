@@ -3,11 +3,10 @@ const cors = require('cors');
 const axios = require('axios');
 
 const app = express();
-
-// هذا هو التغيير المهم: السماح للجميع بالاتصال
 app.use(cors());
 app.use(express.json());
 
+// رابط الـ API (حسب التوثيق)
 const API_URL = "https://api-test.alqaseh.com/v1/egw/payments/create";
 
 app.post('/create-payment', async (req, res) => {
@@ -20,14 +19,20 @@ app.post('/create-payment', async (req, res) => {
             order_id: orderId || `ORD-${Date.now()}`,
             description: "Insurance Premium Payment",
             transaction_type: "Retail",
+            // رابط الرجوع لموقعك (تأكدنا من السماح له)
             redirect_url: "https://ahmeddiab.github.io/iic/payment_status.html" 
-            // ملاحظة: تأكد أن رابط الرجوع هذا صحيح أو رجعه لرابطك السابق اذا تحب
         };
 
         console.log("Sending request to Al Qaseh:", payload);
 
+        // هنا التعديل: استخدام Client ID و Client Secret بالهيدر
         const response = await axios.post(API_URL, payload, {
-            headers: { "Content-Type": "application/json" }
+            headers: { 
+                "Content-Type": "application/json",
+                // البيانات من الصورة اللي دزيتها
+                "x-client-id": "public_test", 
+                "x-client-secret": "Lr10yWWmm1dXLol7VgXCrQVnlq13c1G0"
+            }
         });
 
         res.json({
