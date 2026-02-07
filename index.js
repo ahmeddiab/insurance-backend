@@ -6,45 +6,60 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// الرابط الرسمي للتيست
+// رابط بوابة الدفع (Test Environment)
 const API_URL = "https://api-test.alqaseh.com/v1/egw/payments/create";
 
-// جرب هذه المفاتيح البديلة (تستخدم في بيئة Sandbox المستقرة)
-const CLIENT_ID = "test_user"; 
-const CLIENT_SECRET = "test_password"; 
+// 🔐 البيانات الصحيحة (تم التحقق منها)
+const CLIENT_ID = "public_test";
+const CLIENT_SECRET = "Lr10yWWmm1dXLoI7VgXCrQVnlq13c1G0"; // (Capital I confirmed)
 
 app.post('/create-payment', async (req, res) => {
     try {
         const { amount, orderId } = req.body;
         
-        // استخدام الطريقة الأكثر ضماناً (Header Authentication)
-        const auth = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64');
+        console.log(`🚀 Initiating Payment: ${amount} IQD`);
 
         const payload = {
             amount: parseFloat(amount),
             currency: "IQD",
             order_id: orderId || `ORD-${Date.now()}`,
             description: "Insurance Premium Payment",
-            transaction_type: "Retail",
+            transaction_type: "Retail", // مطلوب حسب الدوكيومنت
             redirect_url: "https://ahmeddiab.github.io/iic/payment_status.html"
         };
 
+        // استخدام المصادقة المباشرة (Native Auth) لأنها نجحت في الاختبار
         const response = await axios.post(API_URL, payload, {
+            auth: {
+                username: CLIENT_ID,
+                password: CLIENT_SECRET
+            },
             headers: { 
-                "Content-Type": "application/json",
-                "Authorization": `Basic ${auth}`
+                "Content-Type": "application/json"
             }
         });
 
-        res.json({ success: true, token: response.data.token });
+        console.log("✅ Payment Created Successfully!");
+        console.log("Token:", response.data.token);
+
+        // إرجاع النتيجة للفرونت إند
+        res.json({
+            success: true,
+            token: response.data.token,
+            payment_id: response.data.payment_id,
+            redirect_url: `https://test-payment-url.com/${response.data.token}` // (مثال، حسب رد البنك)
+        });
 
     } catch (error) {
-        // إذا فشل هذا أيضاً، سنقوم بطباعة "لماذا" بالضبط
-        const errorDetail = error.response ? error.response.data : error.message;
-        console.error("❌ Detail:", errorDetail);
-        res.status(500).json({ success: false, error: errorDetail });
+        console.error("❌ Payment Failed.");
+        const errorData = error.response ? error.response.data : error.message;
+        console.error("Details:", JSON.stringify(errorData, null, 2));
+        
+        res.status(500).json({ success: false, error: errorData });
     }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running`));
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
